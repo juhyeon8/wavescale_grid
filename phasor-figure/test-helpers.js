@@ -39,6 +39,7 @@ function freshState() {
   h.state.captureMode = false;
   h.state.lamMM = 60; h.state.dMM = 15; h.state.L = 1.00; h.state.N = 5;
   h.state.phasorStyle = "spiral";
+  h.state.tickFontPx = h.FIG_BASE.tickFontPx;
 }
 
 function renderLeft(captureMode) {

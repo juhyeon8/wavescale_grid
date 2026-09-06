@@ -619,7 +619,8 @@
   // ===================================================================
   // 9. 상태 + 조작부 바인딩
   // ===================================================================
-  var state = { lamMM: 60, dMM: 15, L: 1.00, N: 5, scale: 2, captureMode: false, phasorStyle: "spiral" };
+  var state = { lamMM: 60, dMM: 15, L: 1.00, N: 5, scale: 2, captureMode: false, phasorStyle: "spiral",
+    tickFontPx: FIG_BASE.tickFontPx };
   function lamM() { return state.lamMM / 1000; }
   function dM() { return state.dMM / 1000; }
 
@@ -628,6 +629,7 @@
     document.getElementById("dVal").textContent = state.dMM.toFixed(0) + " mm";
     document.getElementById("lVal").textContent = state.L.toFixed(2) + " m";
     document.getElementById("nVal").textContent = state.N;
+    document.getElementById("labelVal").textContent = state.tickFontPx + " px";
   }
 
   // ===================================================================
@@ -715,7 +717,7 @@
     if (!captureMode) {
       panelTitle(ctx, W, "정면 관측점 P에서의 산란파 합", "복소평면 (S0_VIEW=" + S0_VIEW + " 전역 고정) · 정면 진행파 기준 위상");
     }
-    var fig = figFor(FIG_BASE.tickFontPx);
+    var fig = figFor(state.tickFontPx);
     var map = complexPlane(ctx, W, H, 50, 126, S0_VIEW, fig);
     var O = map({ re: 0, im: 0 });
     clipToPlot(ctx, map);
@@ -819,6 +821,10 @@
     document.getElementById("dSlider").addEventListener("input", function () { state.dMM = +this.value; render(); });
     document.getElementById("lSlider").addEventListener("input", function () { state.L = +this.value; render(); });
     document.getElementById("nSlider").addEventListener("input", function () { state.N = +this.value; render(); });
+
+    var labelSlider = document.getElementById("labelSlider");
+    labelSlider.value = state.tickFontPx;   // HTML value 와 FIG_BASE 가 조용히 어긋나는 것을 막는다
+    labelSlider.addEventListener("input", function () { state.tickFontPx = +this.value; render(); });
 
     var scaleBtns = document.querySelectorAll("#scaleBtns button");
     scaleBtns.forEach(function (b) {
