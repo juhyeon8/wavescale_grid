@@ -386,9 +386,12 @@
     return Lm.toFixed(2).replace(".", "p");
   }
 
-  function buildFilename(lamMM, dMM, Lm, N, side, style, scale) {
+  // lbl 토큰은 기본값(13)일 때도 항상 붙인다 — 조건부로 붙이면 파일 목록이 두 규칙으로
+  // 갈려 나중에 정렬·대조가 번거로워진다(2026-09-06 확정).
+  function buildFilename(lamMM, dMM, Lm, N, side, style, tickFontPx, scale) {
     return "lam" + Math.round(lamMM) + "_d" + Math.round(dMM) + "_L" + fmtLForFilename(Lm) +
-      "_N" + Math.round(N) + "_" + side + "_" + style + "_x" + scale + ".png";
+      "_N" + Math.round(N) + "_" + side + "_" + style +
+      "_lbl" + Math.round(tickFontPx) + "_x" + scale + ".png";
   }
 
   function needsLGuardConfirm(Lm, lam) {
@@ -877,9 +880,9 @@
     state.captureMode = false;
     render();   // 화면 캔버스를 정상(텍스트 포함) 상태로 재렌더
 
-    saveCanvas(offL, buildFilename(state.lamMM, state.dMM, state.L, state.N, "left", state.phasorStyle, state.scale));
-    saveCanvas(offC, buildFilename(state.lamMM, state.dMM, state.L, state.N, "center", state.phasorStyle, state.scale));
-    saveCanvas(offR, buildFilename(state.lamMM, state.dMM, state.L, state.N, "right", state.phasorStyle, state.scale));
+    saveCanvas(offL, buildFilename(state.lamMM, state.dMM, state.L, state.N, "left", state.phasorStyle, state.tickFontPx, state.scale));
+    saveCanvas(offC, buildFilename(state.lamMM, state.dMM, state.L, state.N, "center", state.phasorStyle, state.tickFontPx, state.scale));
+    saveCanvas(offR, buildFilename(state.lamMM, state.dMM, state.L, state.N, "right", state.phasorStyle, state.tickFontPx, state.scale));
   }
 
   if (typeof document !== "undefined") {

@@ -11,18 +11,18 @@ assert.strictEqual(h.shownPairsFor(3, 3), 3, "N=3 < 20이면 정확히 3쌍");
 
 // buildFilename — 좌우 모두 항상 style 접미사 포함(2026-07-21 사용자 확정)
 assert.strictEqual(
-  h.buildFilename(60, 15, 1.00, 5, "left", "spiral", 2),
-  "lam60_d15_L1p00_N5_left_spiral_x2.png"
+  h.buildFilename(60, 15, 1.00, 5, "left", "spiral", 13, 2),
+  "lam60_d15_L1p00_N5_left_spiral_lbl13_x2.png"
 );
 assert.strictEqual(
-  h.buildFilename(120, 3, 0.30, 200, "right", "B", 3),
-  "lam120_d3_L0p30_N200_right_B_x3.png"
+  h.buildFilename(120, 3, 0.30, 200, "right", "B", 34, 3),
+  "lam120_d3_L0p30_N200_right_B_lbl34_x3.png"
 );
 
 // ==================== 캡처 파일명 — center 케이스 ====================
 assert.strictEqual(
-  h.buildFilename(60, 15, 1.00, 5, "center", "spiral", 2),
-  "lam60_d15_L1p00_N5_center_spiral_x2.png"
+  h.buildFilename(60, 15, 1.00, 5, "center", "spiral", 13, 2),
+  "lam60_d15_L1p00_N5_center_spiral_lbl13_x2.png"
 );
 console.log("PASS buildFilename center 케이스");
 
@@ -314,3 +314,49 @@ var goldenConds = [["A", 60, 30, 5], ["B", 60, 15, 5], ["C", 120, 15, 5]];
   });
 });
 console.log("PASS 기본값 렌더 골든 해시 18건(세 패널 × 조건 A/B/C × 캡처/화면)");
+
+// ==================== 캡처 경로 (2026-09-06) ====================
+// 화면 렌더와 저장 렌더가 같은 draw 함수를 쓰는지, 배율이 좌표가 아니라 변환으로
+// 들어가는지(= 글자가 뭉개지지 않는지)를 스텁에서 확인한다.
+
+function renderRightAt(scale) {
+  freshState();
+  var cv = stub.createStubCanvas(620, 640);
+  var ctx = cv._ctx;
+  var origFillRect = ctx.fillRect, bgFills = [];
+  ctx.fillRect = function (x, y, w, hh) {
+    if (x === 0 && y === 0) bgFills.push({ style: ctx.fillStyle, w: w, h: hh });
+    return origFillRect.apply(ctx, arguments);
+  };
+  h.drawStep2Right(cv, scale);
+  return { cv: cv, ctx: ctx, bgFills: bgFills };
+}
+
+// 배율이 오프스크린 캔버스의 실제 픽셀 수로 반영되어야 한다(화면을 확대 복사하는 게 아님)
+var cap1 = renderRightAt(1), cap3 = renderRightAt(3);
+assert.strictEqual(cap1.cv.width, 620, "1배: 캔버스 폭 620");
+assert.strictEqual(cap3.cv.width, 1860, "3배: 캔버스 폭이 3배(1860)여야 함");
+assert.strictEqual(cap3.cv.height, 1920, "3배: 캔버스 높이가 3배(1920)여야 함");
+assert.ok(stub.hasCall(cap3.ctx, "setTransform", function (a) {
+  return a[0] === 3 && a[3] === 3;
+}), "3배: ctx.setTransform(3,0,0,3,0,0)로 배율이 들어가야 함");
+
+// 논문 삽입용 — 배경은 투명이 아니라 흰색으로 채운다
+assert.ok(cap3.bgFills.length > 0, "배경 채움(fillRect(0,0,...))이 있어야 함");
+assert.strictEqual(cap3.bgFills[0].style, "#FFFFFF", "배경은 흰색이어야 함(투명 금지)");
+assert.strictEqual(cap3.bgFills[0].w, 620, "배경은 논리 좌표계 전체를 덮어야 함");
+
+// 배율을 바꿔도 그리기 좌표는 같아야 한다 — 두 벌의 draw 로직으로 갈라지지 않았다는 증거
+function withoutTransform(ctx) {
+  return ctx.calls.filter(function (c) { return c.name !== "setTransform"; });
+}
+assert.deepStrictEqual(withoutTransform(cap3.ctx), withoutTransform(cap1.ctx),
+  "배율만 다를 뿐 그리기 좌표는 동일해야 함(같은 draw 함수 공유)");
+console.log("PASS 캡처 경로(배율=변환 · 흰 배경 · 화면/저장 draw 함수 공유)");
+
+// 라벨 크기가 파일명에 항상 남는지 — 기본값에서도 조건부로 빠지지 않는다
+assert.ok(h.buildFilename(60, 15, 1.00, 5, "right", "spiral", 13, 2).indexOf("_lbl13_") !== -1,
+  "기본값 13에서도 _lbl 토큰이 있어야 함");
+assert.ok(h.buildFilename(60, 15, 1.00, 5, "right", "spiral", 48, 2).indexOf("_lbl48_") !== -1,
+  "라벨 크기가 바뀌면 파일명도 바뀌어야 함(덮어쓰기 사고 방지)");
+console.log("PASS 파일명 _lbl 토큰(기본값 포함 항상)");
