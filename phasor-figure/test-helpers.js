@@ -249,3 +249,67 @@ var capTextsC = stub.fillTextCalls(centerCap);
 assert.strictEqual(capTextsC.length, 0, "중앙 패널 captureMode=true에서 fillText 호출이 없어야 함(제목·부제 등 설명 라벨 제거)");
 assert.ok(stub.fillTextCalls(centerNorm).length > 0, "중앙 패널 captureMode=false에서는 제목 등 라벨이 있어야 함(회귀 확인)");
 console.log("PASS 중앙 패널 captureMode 라벨 제거 확인");
+
+// ==================== FIG 스타일 상수 (2026-09-06) ====================
+// 이 절이 이 작업의 안전망이다. figFor(기본값)이 예전 화면과 어긋나는 순간 여기서 잡힌다.
+var crypto = require("crypto");
+
+// (1) figFor(기본값)은 FIG_BASE와 완전히 같아야 한다 — 배율 s=1이 항등이라는 뜻
+assert.deepStrictEqual(h.figFor(h.FIG_BASE.tickFontPx), h.FIG_BASE,
+  "figFor(FIG_BASE.tickFontPx)가 FIG_BASE와 다름 — 기본 화면이 바뀐다");
+
+// (2) 기본 수치는 리팩터 이전 하드코딩 값 그대로여야 한다
+assert.strictEqual(h.FIG_BASE.tickFontPx, 13, "눈금 숫자 기본 13px");
+assert.strictEqual(h.FIG_BASE.axisTitleFontPx, 15, "Re/Im 기본 15px");
+assert.strictEqual(h.FIG_BASE.tickGapPx, 5, "축선↔눈금 숫자 간격 기본 5px");
+assert.strictEqual(h.FIG_BASE.gridLineWidth, 1, "격자선 기본 1px");
+assert.strictEqual(h.FIG_BASE.axisLineWidth, 1.4, "축선 기본 1.4px");
+assert.strictEqual(h.FIG_BASE.padPx, 34, "플롯 좌우 여백 기본 34px");
+assert.strictEqual(h.FIG_BASE.segLineWidth, 1.5, "나선 선분 기본 1.5px");
+assert.strictEqual(h.FIG_BASE.sumLineWidth, 2.4, "합 벡터 기본 2.4px");
+assert.strictEqual(h.FIG_BASE.insetLineWidth, 3, "인셋 화살표 기본 3px");
+
+// (3) 스케일 계수 하나로 묶여 있는지 — 26px는 정확히 2배여야 하고 색은 안 변해야 한다
+var fig2x = h.figFor(26);
+assert.strictEqual(fig2x.tickFontPx, 26);
+["axisTitleFontPx", "tickGapPx", "axisTitleGapPx", "axisTitleInsetPx", "gridLineWidth",
+  "axisLineWidth", "originDotR", "padPx", "segLineWidth", "segHeadPx",
+  "sumLineWidth", "sumHeadPx", "insetLineWidth", "insetHeadPx"].forEach(function (key) {
+  assert.strictEqual(fig2x[key], h.FIG_BASE[key] * 2, key + "가 배율에 비례하지 않음");
+});
+["tickColor", "gridColor", "axisColor", "axisTitleColor"].forEach(function (key) {
+  assert.strictEqual(fig2x[key], h.FIG_BASE[key], key + "는 배율과 무관해야 함");
+});
+console.log("PASS FIG 상수(기본값 항등 · 비례 스케일 · 색 불변)");
+
+// (4) 기본값 렌더 골든 해시 — 세 패널 × 논문조건 A/B/C × 캡처/화면.
+//     FIG_BASE를 건드리거나 그리기 순서를 바꾸면 여기서 즉시 깨진다.
+//     의도한 변경이라면 값을 갱신하되, 갱신 전에 "기본 화면이 정말 바뀌어도 되는가"를 먼저 확인할 것.
+var GOLDEN = {
+  LAcap: "207ef0a1c6ecfaee", LAscr: "832b724ebe3f79bf",
+  LBcap: "3f9e7de66a5d9ad1", LBscr: "dc2206e97bf4af90",
+  LCcap: "116c904ed6adc76b", LCscr: "707e8545fc0bc693",
+  CAcap: "712077e61e6761f4", CAscr: "300586aa2d4d09c0",
+  CBcap: "24547aa5175c0549", CBscr: "c56143176dac3707",
+  CCcap: "0eb4bc3b64af9c5d", CCscr: "30230e65a1806a1b",
+  RAcap: "e83029868599fae8", RAscr: "72b5725130acf735",
+  RBcap: "786fef8b51b35db4", RBscr: "6bcf8533372c4f93",
+  RCcap: "40bfa04b27a547a4", RCscr: "3b8a3af33c41a033"
+};
+var goldenConds = [["A", 60, 30, 5], ["B", 60, 15, 5], ["C", 120, 15, 5]];
+[["L", h.drawStep2Left], ["C", h.drawStep2Center], ["R", h.drawStep2Right]].forEach(function (panel) {
+  goldenConds.forEach(function (c) {
+    [true, false].forEach(function (cm) {
+      freshState();
+      h.state.captureMode = cm;
+      h.state.lamMM = c[1]; h.state.dMM = c[2]; h.state.N = c[3];
+      var cv = stub.createStubCanvas(620, 640);
+      panel[1](cv, 1);
+      var key = panel[0] + c[0] + (cm ? "cap" : "scr");
+      var got = crypto.createHash("sha256").update(JSON.stringify(cv._ctx.calls)).digest("hex").slice(0, 16);
+      assert.strictEqual(got, GOLDEN[key],
+        "기본값 렌더가 달라짐 [" + key + "] — 라벨 크기 기본값 상태의 그림은 불변이어야 한다");
+    });
+  });
+});
+console.log("PASS 기본값 렌더 골든 해시 18건(세 패널 × 조건 A/B/C × 캡처/화면)");

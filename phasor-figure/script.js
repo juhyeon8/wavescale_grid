@@ -19,6 +19,50 @@
   function k(lam) { return TWO_PI / lam; }
 
   // ===================================================================
+  // 0.5 그림 스타일 상수 — 우측 복소평면 패널(complexPlane + drawStep2Right)의
+  //     글자 크기·선 굵기·여백을 한곳에 모은다. 흩어져 있던 하드코딩을 옮겨온 것이라
+  //     figFor(FIG_BASE.tickFontPx)는 이전 화면과 픽셀 단위로 동일하다.
+  //     좌·중앙 패널은 이 상수의 적용 범위가 아니다(2026-09-06 사용자 확정).
+  //     ※ 이 그림에는 짧은 눈금선(tick mark)이 없고 전면 격자선만 있다.
+  //        그래서 tickLenPx 대신 tickGapPx(축선↔눈금 숫자 간격)를 쓴다.
+  // ===================================================================
+  var FIG_BASE = {
+    tickFontPx: 13,        // 눈금 숫자
+    axisTitleFontPx: 15,   // "Re" / "Im" (bold)
+    tickGapPx: 5,          // 축선 ↔ 눈금 숫자 간격
+    axisTitleGapPx: 5,     // "Re"가 Re축에서 떨어지는 거리
+    axisTitleInsetPx: 6,   // "Im"이 Im축에서 떨어지는 거리
+    gridLineWidth: 1,      // 옅은 격자선
+    axisLineWidth: 1.4,    // 실축선
+    originDotR: 2.5,       // 원점 점 반지름
+    padPx: 34,             // 플롯 박스 좌우 여백
+    segLineWidth: 1.5,     // 나선 선분 / 위상자 화살표
+    segHeadPx: 6,
+    sumLineWidth: 2.4,     // 합 벡터 화살표
+    sumHeadPx: 9,
+    insetLineWidth: 3,     // 인셋(입사파 =1 · s₀)
+    insetHeadPx: 9,
+    tickColor: "#666",
+    gridColor: "#EDF0F3",
+    axisColor: "#9AA3AB",
+    axisTitleColor: C_INK
+  };
+  var FIG_SCALED_KEYS = ["axisTitleFontPx", "tickGapPx", "axisTitleGapPx", "axisTitleInsetPx",
+    "gridLineWidth", "axisLineWidth", "originDotR", "padPx",
+    "segLineWidth", "segHeadPx", "sumLineWidth", "sumHeadPx",
+    "insetLineWidth", "insetHeadPx"];
+
+  // 눈금 숫자 크기 하나를 기준 배율로 삼아 나머지 치수를 비례시킨다(DOM 비의존 순수 함수).
+  function figFor(tickFontPx) {
+    var s = tickFontPx / FIG_BASE.tickFontPx;
+    var out = {};
+    Object.keys(FIG_BASE).forEach(function (key) { out[key] = FIG_BASE[key]; });
+    out.tickFontPx = tickFontPx;
+    FIG_SCALED_KEYS.forEach(function (key) { out[key] = FIG_BASE[key] * s; });
+    return out;
+  }
+
+  // ===================================================================
   // 1. 베셀/한켈 — Faraday/script.js 그대로 (A&S 9.4 다항 근사)
   // ===================================================================
   function besselJ0(x) {
@@ -187,8 +231,9 @@
     ctx.closePath(); ctx.fill();
   }
 
-  function complexPlane(ctx, W, H, top, bottomReserve, R) {
-    var padX = 34;
+  function complexPlane(ctx, W, H, top, bottomReserve, R, fig) {
+    fig = fig || figFor(FIG_BASE.tickFontPx);
+    var padX = fig.padPx;
     var size = Math.min(W - padX * 2, H - top - bottomReserve);
     var cx = W / 2, cy = top + size / 2;
     var sc = (size / 2) / R;
@@ -196,33 +241,33 @@
     var t;
 
     ctx.save();
-    ctx.strokeStyle = "#EDF0F3"; ctx.lineWidth = 1;
+    ctx.strokeStyle = fig.gridColor; ctx.lineWidth = fig.gridLineWidth;
     for (var g = -Math.floor(R / step) * step; g <= R + 1e-9; g += step) {
       var gx = cx + g * sc, gy = cy - g * sc;
       ctx.beginPath(); ctx.moveTo(gx, cy - size / 2); ctx.lineTo(gx, cy + size / 2); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(cx - size / 2, gy); ctx.lineTo(cx + size / 2, gy); ctx.stroke();
     }
-    ctx.strokeStyle = "#9AA3AB"; ctx.lineWidth = 1.4;
+    ctx.strokeStyle = fig.axisColor; ctx.lineWidth = fig.axisLineWidth;
     ctx.beginPath(); ctx.moveTo(cx - size / 2, cy); ctx.lineTo(cx + size / 2, cy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx, cy - size / 2); ctx.lineTo(cx, cy + size / 2); ctx.stroke();
-    ctx.font = "13px system-ui, sans-serif"; ctx.fillStyle = "#666";
+    ctx.font = fig.tickFontPx + "px system-ui, sans-serif"; ctx.fillStyle = fig.tickColor;
     ctx.textAlign = "center"; ctx.textBaseline = "top";
     for (t = -Math.floor(R / step) * step; t <= R + 1e-9; t += step) {
       if (Math.abs(t) < 1e-9) continue;
-      ctx.fillText(fmtTick(t), cx + t * sc, cy + 5);
+      ctx.fillText(fmtTick(t), cx + t * sc, cy + fig.tickGapPx);
     }
     ctx.textAlign = "right"; ctx.textBaseline = "middle";
     for (t = -Math.floor(R / step) * step; t <= R + 1e-9; t += step) {
       if (Math.abs(t) < 1e-9) continue;
-      ctx.fillText(fmtTick(t), cx - 5, cy - t * sc);
+      ctx.fillText(fmtTick(t), cx - fig.tickGapPx, cy - t * sc);
     }
-    ctx.fillStyle = C_INK; ctx.font = "bold 15px system-ui, sans-serif";
+    ctx.fillStyle = fig.axisTitleColor; ctx.font = "bold " + fig.axisTitleFontPx + "px system-ui, sans-serif";
     ctx.textAlign = "right"; ctx.textBaseline = "bottom";
-    ctx.fillText("Re", cx + size / 2, cy - 5);
+    ctx.fillText("Re", cx + size / 2, cy - fig.axisTitleGapPx);
     ctx.textAlign = "left"; ctx.textBaseline = "top";
-    ctx.fillText("Im", cx + 6, cy - size / 2);
-    ctx.fillStyle = "#666";
-    ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, TWO_PI); ctx.fill();
+    ctx.fillText("Im", cx + fig.axisTitleInsetPx, cy - size / 2);
+    ctx.fillStyle = fig.tickColor;
+    ctx.beginPath(); ctx.arc(cx, cy, fig.originDotR, 0, TWO_PI); ctx.fill();
     ctx.restore();
 
     var map = function (z) { return [cx + z.re * sc, cy - z.im * sc]; };
@@ -670,7 +715,8 @@
     if (!captureMode) {
       panelTitle(ctx, W, "정면 관측점 P에서의 산란파 합", "복소평면 (S0_VIEW=" + S0_VIEW + " 전역 고정) · 정면 진행파 기준 위상");
     }
-    var map = complexPlane(ctx, W, H, 50, 126, S0_VIEW);
+    var fig = figFor(FIG_BASE.tickFontPx);
+    var map = complexPlane(ctx, W, H, 50, 126, S0_VIEW, fig);
     var O = map({ re: 0, im: 0 });
     clipToPlot(ctx, map);
 
@@ -681,12 +727,12 @@
       for (var i3 = Math.max(0, nMax - WIRE_PAIRS_SHOWN); i3 <= Math.min(2 * nMax, nMax + WIRE_PAIRS_SHOWN); i3++) {
         var n3 = i3 - nMax, rank3 = Math.abs(n3);
         var pv = map(vecs[n3 + nMax]);
-        arrow(ctx, O[0], O[1], pv[0], pv[1], wireColor(rank3, WIRE_PAIRS_SHOWN), 1.5, 6);
+        arrow(ctx, O[0], O[1], pv[0], pv[1], wireColor(rank3, WIRE_PAIRS_SHOWN), fig.segLineWidth, fig.segHeadPx);
       }
       ctx.restore();
     } else {
       ctx.save();
-      ctx.lineWidth = 1.5; ctx.lineJoin = "round";
+      ctx.lineWidth = fig.segLineWidth; ctx.lineJoin = "round";
       function farBatch(iStart, iEnd) {
         if (iEnd <= iStart) return;
         ctx.strokeStyle = wireColor(WIRE_PAIRS_SHOWN + 1, WIRE_PAIRS_SHOWN);
@@ -704,7 +750,7 @@
         var p0 = map(pts[i2]), p1 = map(pts[i2 + 1]);
         var col2 = wireColor(rank2, WIRE_PAIRS_SHOWN);
         if (style === "B") {
-          arrow(ctx, p0[0], p0[1], p1[0], p1[1], col2, 1.5, 6);
+          arrow(ctx, p0[0], p0[1], p1[0], p1[1], col2, fig.segLineWidth, fig.segHeadPx);
         } else {
           ctx.strokeStyle = col2;
           ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
@@ -715,7 +761,7 @@
     ctx.restore();
 
     var pe = map(end);
-    arrow(ctx, O[0], O[1], pe[0], pe[1], C_INK, 2.4, 9);
+    arrow(ctx, O[0], O[1], pe[0], pe[1], C_INK, fig.sumLineWidth, fig.sumHeadPx);
 
     var ux = 100, uy = 96, unit = 62;
     if (!captureMode) {
@@ -728,13 +774,13 @@
       ctx.fillText(headTxt, ux - 11, uy - 38);
       ctx.restore();
     }
-    arrow(ctx, ux, uy, ux + unit, uy, C_GREY, 3, 9);
+    arrow(ctx, ux, uy, ux + unit, uy, C_GREY, fig.insetLineWidth, fig.insetHeadPx);
     if (!captureMode) {
       arrowLabel(ctx, W, ux + unit + 8, uy, "=1", C_GREY);
     }
     var sAng = Math.atan2(s0.im, s0.re), sLen = unit * mag(s0);
     var sx = ux + sLen * Math.cos(sAng), sy = uy - sLen * Math.sin(sAng);
-    arrow(ctx, ux, uy, sx, sy, C_RED, 3, 9);
+    arrow(ctx, ux, uy, sx, sy, C_RED, fig.insetLineWidth, fig.insetHeadPx);
 
     if (!captureMode) {
       var err = relErr(end, target);
@@ -852,7 +898,9 @@
       cornuPartials: cornuPartials,
       amplitudeSpread: amplitudeSpread,
       PAPER_CONDITIONS: PAPER_CONDITIONS,
-      CENTER_PHASOR_SCALE: CENTER_PHASOR_SCALE
+      CENTER_PHASOR_SCALE: CENTER_PHASOR_SCALE,
+      FIG_BASE: FIG_BASE,
+      figFor: figFor
     };
   }
 
